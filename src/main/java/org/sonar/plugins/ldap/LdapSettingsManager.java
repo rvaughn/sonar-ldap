@@ -159,6 +159,9 @@ public class LdapSettingsManager implements ServerExtension {
         throw new SonarException(String.format("The property '%s' is empty and SonarQube is not able to auto-discover any LDAP server.", ldapUrlKey));
       }
       int index = 1;
+      // This does not work correctly. For once thing, it only detects one server in our
+      // environment, even though we have 6, and it appends the index on the <default> key, which
+      // the lookups don't expect. So, we explicitly copy <default>1 to key <default>.
       for (LdapSrvRecord ldapSrvRecord : ldapServers) {
         if (StringUtils.isNotBlank(ldapSrvRecord.getServerUrl())) {
           LOG.info("Detected server: " + ldapSrvRecord.getServerUrl());
@@ -167,6 +170,7 @@ public class LdapSettingsManager implements ServerExtension {
           index++;
         }
       }
+      contextFactories.put(DEFAULT_LDAP_SERVER_KEY, contextFactories.get(DEFAULT_LDAP_SERVER_KEY + "1"));
     } else {
       if (StringUtils.isBlank(ldapUrl)) {
         throw new SonarException(String.format("The property '%s' is empty and no realm configured to try auto-discovery.", ldapUrlKey));

@@ -91,7 +91,8 @@ public class LdapSettingsManagerTest {
     when(ldapAutodiscovery.getLdapServers("example.org")).thenReturn(Arrays.asList(ldap1, ldap2));
     LdapSettingsManager settingsManager = new LdapSettingsManager(
       generateAutodiscoverSettings(), ldapAutodiscovery);
-    assertThat(settingsManager.getContextFactories().size()).isEqualTo(2);
+    // we should have the two servers we added, plus the extra <default>
+    assertThat(settingsManager.getContextFactories().size()).isEqualTo(3);
   }
 
   @Test
