@@ -59,47 +59,54 @@ public class LdapUsersProvider extends ExternalUsersProvider {
    * @throws SonarException if unable to retrieve details
    */
   public UserDetails doGetUserDetails(String username) {
-    LOG.debug("Requesting details for user {}", username);
-    // If there are no userMappings available, we can not retrieve user details.
-    if (userMappings.isEmpty()) {
-      String errorMessage = "Unable to retrieve details for user " + username + ": No user mapping found.";
-      LOG.debug(errorMessage);
-      throw new SonarException(errorMessage);
-    }
-    UserDetails details = null;
-    SonarException sonarException = null;
-    for (String serverKey : userMappings.keySet()) {
-      SearchResult searchResult = null;
-      try {
-        searchResult = userMappings.get(serverKey).createSearch(contextFactories.get(serverKey), username)
-            .returns(userMappings.get(serverKey).getEmailAttribute(), userMappings.get(serverKey).getRealNameAttribute())
-            .findUnique();
-      } catch (NamingException e) {
-        // just in case if Sonar silently swallowed exception
-        LOG.debug(e.getMessage(), e);
-        sonarException = new SonarException("Unable to retrieve details for user " + username + " in " + serverKey, e);
+    try {
+      LOG.debug("Requesting details for user {}", username);
+      // If there are no userMappings available, we can not retrieve user details.
+      if (userMappings.isEmpty()) {
+        String errorMessage = "Unable to retrieve details for user " + username + ": No user mapping found.";
+        LOG.debug(errorMessage);
+        throw new SonarException(errorMessage);
       }
-      if (searchResult != null) {
+      UserDetails details = null;
+      SonarException sonarException = null;
+      for (String serverKey : userMappings.keySet()) {
+        SearchResult searchResult = null;
         try {
-          details = mapUserDetails(serverKey, searchResult);
-          // if no exceptions occur, we found the user and mapped his details.
-          break;
+          searchResult = userMappings.get(serverKey).createSearch(contextFactories.get(serverKey), username)
+              .returns(userMappings.get(serverKey).getEmailAttribute(), userMappings.get(serverKey).getRealNameAttribute())
+              .findUnique();
         } catch (NamingException e) {
           // just in case if Sonar silently swallowed exception
           LOG.debug(e.getMessage(), e);
           sonarException = new SonarException("Unable to retrieve details for user " + username + " in " + serverKey, e);
         }
-      } else {
-        // user not found
-        LOG.debug("User {} not found in " + serverKey, username);
-        continue;
+        if (searchResult != null) {
+          try {
+            details = mapUserDetails(serverKey, searchResult);
+            // if no exceptions occur, we found the user and mapped his details.
+            break;
+          } catch (NamingException e) {
+            // just in case if Sonar silently swallowed exception
+            LOG.debug(e.getMessage(), e);
+            sonarException = new SonarException("Unable to retrieve details for user " + username + " in " + serverKey, e);
+          }
+        } else {
+          // user not found
+          LOG.debug("User {} not found in " + serverKey, username);
+          continue;
+        }
       }
+      if (details == null && sonarException != null) {
+        // No user found and there is an exception so there is a reason the user could not be found.
+        throw sonarException;
+      }
+      return details;
+    } catch (Exception e) {
+      // Sonar will not currently display debug output from plugins, so raise any failure to
+      // INFO instead.
+      LOG.info(e.getMessage(), e);
+      throw e;
     }
-    if (details == null && sonarException != null) {
-      // No user found and there is an exception so there is a reason the user could not be found.
-      throw sonarException;
-    }
-    return details;
   }
 
   /**
